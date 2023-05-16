@@ -2,10 +2,10 @@
 # this dockerfile roughly follows the 'Installing from source' from:
 #   http://wiki.ros.org/noetic/Installation/Source
 #
-ARG BASE_IMAGE=nvcr.io/nvidia/l4t-base:r32.5.0
+ARG BASE_IMAGE=nvcr.io/nvidia/l4t-base:35.3.1
 FROM ${BASE_IMAGE}
 
-ARG ROS_PKG=ros_base
+ARG ROS_PKG=desktop
 ENV ROS_DISTRO=noetic
 ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
 ENV ROS_PYTHON_VERSION=3
@@ -43,11 +43,33 @@ RUN apt-get update && \
           python3-rosdep \
           python3-rosinstall-generator \
           python3-vcstool \
+          libgoogle-glog-dev \
+          libgflags-dev \
+          libatlas-base-dev \
+          libeigen3-dev \
           build-essential && \
     rosdep init && \
     rosdep update && \
     rm -rf /var/lib/apt/lists/*
 
+#
+# install ceres-solver
+#
+WORKDIR /tmp
+RUN wget http://ceres-solver.org/ceres-solver-2.1.0.tar.gz && \
+    tar zxf ceres-solver-2.1.0.tar.gz && \
+    mkdir ceres-bin && \
+    cd ceres-bin && \
+    cmake ../ceres-solver-2.1.0 && \
+    make -j12 && \
+    make install
+
+#
+# install opencv through apt install
+#
+RUN apt-get update && \
+    apt-get remove -y libopencv && \
+    apt-get install -y libopencv-dev=4.2.0+dfsg-5
 
 #
 # download/build the ROS source
@@ -62,6 +84,9 @@ RUN mkdir ros_catkin_ws && \
     python3 ./src/catkin/bin/catkin_make_isolated --install --install-space ${ROS_ROOT} -DCMAKE_BUILD_TYPE=Release && \
     rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && \
+    apt-get install -y ros-noetic-cv-bridge ros-noetic-tf
+
 
 # 
 # setup entrypoint
@@ -74,10 +99,28 @@ RUN echo 'source /ros_entrypoint.sh' >> /root/.bashrc
 
 WORKDIR /
 
-
 #
 # ros_deep_learning (PyTorch-based container only)
 #
 COPY ./scripts/ros_deep_learning.sh /tmp/ros_deep_learning.sh
 RUN cd /tmp && ./ros_deep_learning.sh
+
+
+#
+# install vinsFusion
+#
+
+RUN mkdir ros_ws
+
+WORKDIR /ros_ws
+
+RUN . /opt/ros/noetic/setup.sh && \
+    mkdir src && \
+    cd src && \
+    git clone https://github.com/bonabai/VINS-Fusion.git && \
+    cd .. && \
+    catkin_make
+RUN echo 'source /ros_ws/devel/setup.bash' >> /root/.bashrc
+
+
 

@@ -40,7 +40,7 @@ die() {
 
 # determine the L4T version
 source scripts/docker_base.sh
-source scripts/opencv_version.sh
+#source scripts/opencv_version.sh
 
 # define default options
 if [[ $L4T_RELEASE -eq 34 || $L4T_RELEASE -eq 35 ]]; then   # JetPack 5.x / Ubuntu 20.04
